@@ -1,0 +1,89 @@
+# You may add here your
+# server {
+#	...
+# }
+# statements for each of your virtual hosts to this file
+
+##
+# You should look at the following URL's in order to grasp a solid understanding
+# of Nginx configuration files in order to fully unleash the power of Nginx.
+# http://wiki.nginx.org/Pitfalls
+# http://wiki.nginx.org/QuickStart
+# http://wiki.nginx.org/Configuration
+#
+# Generally, you will want to move this file somewhere, and start with a clean
+# file but keep this around for reference. Or just disable in sites-enabled.
+#
+# Please see /usr/share/doc/nginx-doc/examples/ for more detailed examples.
+##
+
+server {
+	listen 81 default_server;
+
+	server_name "";
+	return 444;
+}
+
+upstream app_server {
+    server unix:/var/www/charts/web/fcgi.socket fail_timeout=0;
+}
+
+server {
+    listen 127.0.0.1:81 default_server;
+    listen 81;
+    listen [::]:81 ipv6only=on;
+
+    root /var/www/charts/web/frontend;
+
+    server_name charts.afh.ues.ru;
+    client_max_body_size 100M;
+
+    location / {
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        proxy_redirect off;
+
+        proxy_pass   http://app_server;
+	proxy_read_timeout 300s;
+    }
+
+    location /static/ {
+        alias /var/www/charts/web/frontend/static/;
+        autoindex off;
+    }   
+
+}
+
+upstream test_app_server {
+    server unix:/var/www/charts/web.test/fcgi.socket fail_timeout=0;
+}
+
+server {
+    listen 127.0.0.1:81;
+    listen 81;
+
+    root /var/www/charts/web.test/frontend;
+
+    server_name mail.gk-es.ru;
+
+    client_max_body_size 100M;
+
+    location / {
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+	proxy_read_timeout 300s;
+
+        proxy_redirect off;
+
+        proxy_pass   http://test_app_server;
+    }
+
+    location /static/ {
+        alias /var/www/charts/web.test/frontend/static/;
+        autoindex off;
+    }   
+
+}
